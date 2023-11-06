@@ -30,7 +30,7 @@ using System.Text;
 
 namespace PDFiumSharp.Types
 {
-    internal unsafe class Utf8StringMarshaler : ICustomMarshaler
+    internal class Utf8StringMarshaler : ICustomMarshaler
     {
         public const string LeaveAllocated = "LeaveAllocated";
 
@@ -59,16 +59,11 @@ namespace PDFiumSharp.Types
             {
                 return null;
             }
-
-            var ptr = (byte*)pNativeData;
-            while (*ptr != 0)
-            {
-                ptr++;
-            }
-
-            var bytes = new byte[ptr - (byte*)pNativeData];
-            Marshal.Copy(pNativeData, bytes, 0, bytes.Length);
-            return Encoding.UTF8.GetString(bytes);
+            int len = 0;
+            while (Marshal.ReadByte(pNativeData, len) != 0) ++len;
+            byte[] buffer = new byte[len];
+            Marshal.Copy(pNativeData, buffer, 0, buffer.Length);
+            return Encoding.UTF8.GetString(buffer);
         }
 
         public IntPtr MarshalManagedToNative(object managedObj)
@@ -77,22 +72,19 @@ namespace PDFiumSharp.Types
             {
                 return IntPtr.Zero;
             }
-
-            if (!(managedObj is string str))
+            if (managedObj is string managedString)
+            {
+                int len = Encoding.UTF8.GetByteCount(managedString);
+                byte[] buffer = new byte[len + 1];
+                Encoding.UTF8.GetBytes(managedString, 0, managedString.Length, buffer, 0);
+                IntPtr nativeUtf8 = Marshal.AllocHGlobal(buffer.Length);
+                Marshal.Copy(buffer, 0, nativeUtf8, buffer.Length);
+                return nativeUtf8;
+            }
+            else
             {
                 throw new ArgumentException("ManagedObj must be a string.", "managedObj");
             }
-
-            var bytes = Encoding.UTF8.GetBytes(str);
-            var mem = Marshal.AllocHGlobal(bytes.Length + 1);
-            Marshal.Copy(bytes, 0, mem, bytes.Length);
-            var b = (byte*)mem;
-            if (b != null)
-            {
-                b[bytes.Length] = 0;
-            }
-
-            return mem;
         }
 
         public void CleanUpManagedData(object managedObj) { }

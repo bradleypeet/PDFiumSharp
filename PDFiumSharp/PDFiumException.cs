@@ -12,7 +12,18 @@ namespace PDFiumSharp
 {
 	public sealed class PDFiumException : Exception
 	{
-		public PDFiumException()
-			: base($"PDFium Error: {PDFium.FPDF_GetLastError().GetDescription()}") { }
-	}
+        public PDFiumException()
+        {
+            PdfiumErrorNumber = PDFium.FPDF_GetLastError();
+        }
+
+        public PDFiumException(FPDF_ERR pdfiumErrorNumber)
+        {
+            PdfiumErrorNumber = pdfiumErrorNumber;
+        }
+
+        public FPDF_ERR PdfiumErrorNumber { get; private set; }
+
+        public override string Message => $"PDFium Error: {PdfiumErrorNumber.GetDescription()}";
+    }
 }
