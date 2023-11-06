@@ -24,6 +24,8 @@ namespace PDFiumSharp
 
         internal FPDF_FORMHANDLE Form => this.form;
 
+        private FPDF_FILEREAD streamReader;
+
         /// <summary>
         /// Gets the pages in the current <see cref="PdfDocument"/>.
         /// </summary>
@@ -138,15 +140,24 @@ namespace PDFiumSharp
         /// Loads a <see cref="PdfDocument"/> from '<paramref name="count"/>' bytes read from a <paramref name="stream"/>.
         /// <see cref="Close"/> must be called in order to free unmanaged resources.
         /// </summary>
-        /// <param name="stream"></param>
-        /// <param name="fileRead"></param>
+        /// <param name="stream"></param>        
         /// <param name="count">
         /// The number of bytes to read from the <paramref name="stream"/>.
         /// If the value is equal to or smaller than 0, the stream is read to the end.
         /// </param>
         /// <param name="password"></param>
-        public PdfDocument(Stream stream, FPDF_FILEREAD fileRead, int count = 0, string password = null)
-            : this(PDFium.FPDF_LoadDocument(stream, fileRead, count, password)) { }
+		public PdfDocument(Stream stream, int count = 0, string password = null)
+            : this(FPDF_FILEREAD.FromStream(stream, count), password)
+        {
+        }
+
+        internal PdfDocument(FPDF_FILEREAD reader, string password = null)
+            : this(PDFium.FPDF_LoadCustomDocument(reader, password))
+        {
+            // must maintain reference to reader to prevent the callback delegate (passed as an
+            // unmanaged function pointer to native pdfium lib) from getting garbage collected.
+            streamReader = reader;
+        }
 
         /// <summary>
         /// Closes the <see cref="PdfDocument"/> and frees unmanaged resources.
