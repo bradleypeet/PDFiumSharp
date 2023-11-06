@@ -77,32 +77,42 @@ namespace PDFiumSharp
 		internal static PdfPage Load(PdfDocument doc, int index) => new PdfPage(doc, PDFium.FPDF_LoadPage(doc.Handle, index), index);
 		internal static PdfPage New(PdfDocument doc, int index, double width, double height) => new PdfPage(doc, PDFium.FPDFPage_New(doc.Handle, index, width, height), index);
 
-		/// <summary>
-		/// Renders the page to a <see cref="PDFiumBitmap"/>
-		/// </summary>
-		/// <param name="renderTarget">The bitmap to which the page is to be rendered.</param>
-		/// <param name="rectDest">The destination rectangle in <paramref name="renderTarget"/>.</param>
-		/// <param name="orientation">The orientation at which the page is to be rendered.</param>
-		/// <param name="flags">The flags specifying how the page is to be rendered.</param>
-		public void Render(PDFiumBitmap renderTarget, (int left, int top, int width, int height) rectDest, PageOrientations orientation = PageOrientations.Normal, RenderingFlags flags = RenderingFlags.None)
+        /// <summary>
+        /// Renders the page to a <see cref="PDFiumBitmap"/>
+        /// </summary>
+        /// <param name="renderTarget">The bitmap to which the page is to be rendered.</param>
+        /// <param name="rectDest">The destination rectangle in <paramref name="renderTarget"/>.</param>
+        /// <param name="orientation">The orientation at which the page is to be rendered.</param>
+        /// <param name="flags">The flags specifying how the page is to be rendered.</param>
+        public void Render(PDFiumBitmap renderTarget, (int left, int top, int width, int height) rectDest, PageOrientations orientation = PageOrientations.Normal, RenderingFlags flags = RenderingFlags.None)
 		{
+			Render(renderTarget, rectDest, orientation, flags, false);
+		}
+
+        /// <summary>
+        /// Renders the page to a <see cref="PDFiumBitmap"/>
+        /// </summary>
+        /// <param name="renderTarget">The bitmap to which the page is to be rendered.</param>
+        /// <param name="rectDest">The destination rectangle in <paramref name="renderTarget"/>.</param>
+        /// <param name="orientation">The orientation at which the page is to be rendered.</param>
+        /// <param name="flags">The flags specifying how the page is to be rendered.</param>
+		/// <param name="renderPopupAnnotations">Draw popup annoations (only when RenderingFlags.Annotations is set in <paramref name="flags"/>).<param>
+        public void Render(PDFiumBitmap renderTarget, (int left, int top, int width, int height) rectDest, PageOrientations orientation = PageOrientations.Normal, RenderingFlags flags = RenderingFlags.None, bool renderPopupAnnotations = false)
+        {
 			if (renderTarget == null)
 				throw new ArgumentNullException(nameof(renderTarget));
-
-			// If we have a valid form and we were asked to render annotations
-			// we first render bitmap without annotations and render them after via a form
-			var form = this.Document.Form;
-			var renderAnnotations = !form.IsNull && flags.HasFlag(RenderingFlags.Annotations);
-			if (renderAnnotations)
-			{
-				flags &= ~RenderingFlags.Annotations;
-			}
-
-			PDFium.FPDF_RenderPageBitmap(renderTarget.Handle, this.Handle, rectDest.left, rectDest.top, rectDest.width, rectDest.height, orientation, flags);
-
-			if (renderAnnotations)
-			{
-				PDFium.FPDF_FFLDraw(form, renderTarget.Handle, this.Handle, rectDest.left, rectDest.top, rectDest.width, rectDest.height, orientation, flags);
+            // Note: Newer pdfium builds handle drawing of annotations differently than in the past (4 or more years ago).
+            // See: https://codereview.chromium.org/2323203002 for details.
+            // The annoation flag must remain set to draw non-widget annoations.
+            PDFium.FPDF_RenderPageBitmap(renderTarget.Handle, this.Handle, rectDest.left, rectDest.top, rectDest.width, rectDest.height, orientation, flags);
+			// draw filled form if it exists and annotation flag is set
+            var form = this.Document.Form;
+            if (flags.HasFlag(RenderingFlags.Annotations) && !form.IsNull)
+			{				
+				// Turn off flag if caller does not want popup annotations to be drawn.
+				flags = renderPopupAnnotations ? flags : flags & ~RenderingFlags.Annotations;
+                // Note: for this call, the annotation flag only controls whether popup annotations are drawn. Widget annotations are drawn regardless.
+                PDFium.FPDF_FFLDraw(form, renderTarget.Handle, this.Handle, rectDest.left, rectDest.top, rectDest.width, rectDest.height, orientation, flags);
 			}
 		}
 
