@@ -29,7 +29,19 @@ namespace PDFiumSharp.Types
 		protected NativeWrapper(T handle)
 		{
 			if (handle.IsNull)
-				throw new ArgumentNullException($"{typeof(T).Name} handle must not be null.");
+			{
+				// check for pdfium API error
+				PDFiumException pdfiumException = new PDFiumException();
+                // if the last pdfium API call succeeded throw an argument exception.
+                if (pdfiumException.PdfiumErrorNumber == FPDF_ERR.SUCCESS)
+				{					
+					throw new ArgumentException($"{typeof(T).Name} handle must not be null.");
+				}
+				else
+				{
+					throw pdfiumException;
+				}
+			}
 			_handle = handle;
 		}
 
